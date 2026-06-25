@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wallet-service
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: wallet_user
+      DB_PASSWORD: wallet_pass
+      DB_DATABASE: wallet_db
+      JWT_SECRET: wallet-secret-key-2024
+      JWT_EXPIRES_IN: 3600
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wallet-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: wallet-postgres
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: wallet_user
+      POSTGRES_PASSWORD: wallet_pass
+      POSTGRES_DB: wallet_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - wallet-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wallet_user -d wallet_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  wallet-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
